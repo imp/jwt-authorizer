@@ -1,6 +1,6 @@
 use std::{io::Read, sync::Arc};
 
-use jsonwebtoken::{decode, decode_header, jwk::JwkSet, Algorithm, DecodingKey, TokenData};
+use jsonwebtoken::{decode, decode_header, jwk::JwkSet, DecodingKey, TokenData};
 use reqwest::Url;
 use serde::de::DeserializeOwned;
 
@@ -70,122 +70,59 @@ where
         refresh: Option<Refresh>,
         validation: crate::validation::Validation,
     ) -> Result<Authorizer<C>, InitError> {
-        Ok(match key_source_type {
+        let key_source = match key_source_type {
             KeySourceType::RSA(path) => {
                 let key = DecodingKey::from_rsa_pem(&read_data(path.as_str())?)?;
-                Authorizer {
-                    key_source: KeySource::SingleKeySource(Arc::new(KeyData {
-                        kid: None,
-                        alg: vec![Algorithm::RS256, Algorithm::RS384, Algorithm::RS512],
-                        key,
-                    })),
-                    claims_checker,
-                    validation,
-                }
+                KeySource::SingleKeySource(Arc::new(KeyData::from_rsa_key(key)))
             }
             KeySourceType::RSAString(text) => {
                 let key = DecodingKey::from_rsa_pem(text.as_bytes())?;
-                Authorizer {
-                    key_source: KeySource::SingleKeySource(Arc::new(KeyData {
-                        kid: None,
-                        alg: vec![Algorithm::RS256, Algorithm::RS384, Algorithm::RS512],
-                        key,
-                    })),
-                    claims_checker,
-                    validation,
-                }
+                KeySource::SingleKeySource(Arc::new(KeyData::from_rsa_key(key)))
             }
             KeySourceType::EC(path) => {
                 let key = DecodingKey::from_ec_pem(&read_data(path.as_str())?)?;
-                Authorizer {
-                    key_source: KeySource::SingleKeySource(Arc::new(KeyData {
-                        kid: None,
-                        alg: vec![Algorithm::ES256, Algorithm::ES384],
-                        key,
-                    })),
-                    claims_checker,
-                    validation,
-                }
+                KeySource::SingleKeySource(Arc::new(KeyData::from_ec_key(key)))
             }
             KeySourceType::ECString(text) => {
                 let key = DecodingKey::from_ec_pem(text.as_bytes())?;
-                Authorizer {
-                    key_source: KeySource::SingleKeySource(Arc::new(KeyData {
-                        kid: None,
-                        alg: vec![Algorithm::ES256, Algorithm::ES384],
-                        key,
-                    })),
-                    claims_checker,
-                    validation,
-                }
+                KeySource::SingleKeySource(Arc::new(KeyData::from_ec_key(key)))
             }
             KeySourceType::ED(path) => {
                 let key = DecodingKey::from_ed_pem(&read_data(path.as_str())?)?;
-                Authorizer {
-                    key_source: KeySource::SingleKeySource(Arc::new(KeyData {
-                        kid: None,
-                        alg: vec![Algorithm::EdDSA],
-                        key,
-                    })),
-                    claims_checker,
-                    validation,
-                }
+                KeySource::SingleKeySource(Arc::new(KeyData::from_ed_key(key)))
             }
             KeySourceType::EDString(text) => {
                 let key = DecodingKey::from_ed_pem(text.as_bytes())?;
-                Authorizer {
-                    key_source: KeySource::SingleKeySource(Arc::new(KeyData {
-                        kid: None,
-                        alg: vec![Algorithm::EdDSA],
-                        key,
-                    })),
-                    claims_checker,
-                    validation,
-                }
+                KeySource::SingleKeySource(Arc::new(KeyData::from_ed_key(key)))
             }
             KeySourceType::Secret(secret) => {
                 let key = DecodingKey::from_secret(secret.as_bytes());
-                Authorizer {
-                    key_source: KeySource::SingleKeySource(Arc::new(KeyData {
-                        kid: None,
-                        alg: vec![Algorithm::HS256, Algorithm::HS384, Algorithm::HS512],
-                        key,
-                    })),
-                    claims_checker,
-                    validation,
-                }
+                KeySource::SingleKeySource(Arc::new(KeyData::from_secret(key)))
             }
             KeySourceType::JwksString(jwks_str) => {
                 // TODO: expose it in JwtAuthorizer or remove
                 let set: JwkSet = serde_json::from_str(jwks_str)?;
                 // TODO: replace [0] by kid/alg search
                 let k = KeyData::from_jwk(&set.keys[0]).map_err(InitError::KeyDecodingError)?;
-                Authorizer {
-                    key_source: KeySource::SingleKeySource(Arc::new(k)),
-                    claims_checker,
-                    validation,
-                }
+                KeySource::SingleKeySource(Arc::new(k))
             }
             KeySourceType::Jwks(url) => {
                 let jwks_url = Url::parse(url).map_err(|e| InitError::JwksUrlError(e.to_string()))?;
                 let key_store_manager = KeyStoreManager::new(jwks_url, refresh.unwrap_or_default());
-                Authorizer {
-                    key_source: KeySource::KeyStoreSource(key_store_manager),
-                    claims_checker,
-                    validation,
-                }
+                KeySource::KeyStoreSource(key_store_manager)
             }
             KeySourceType::Discovery(issuer_url) => {
                 let jwks_url = Url::parse(&oidc::discover_jwks(issuer_url).await?)
                     .map_err(|e| InitError::JwksUrlError(e.to_string()))?;
-
                 let key_store_manager = KeyStoreManager::new(jwks_url, refresh.unwrap_or_default());
-                Authorizer {
-                    key_source: KeySource::KeyStoreSource(key_store_manager),
-                    claims_checker,
-                    validation,
-                }
+                KeySource::KeyStoreSource(key_store_manager)
             }
+        };
+
+        Ok(Authorizer {
+            key_source,
+            claims_checker,
+            validation,
         })
     }
 
