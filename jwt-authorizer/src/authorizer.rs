@@ -1,4 +1,6 @@
-use std::{io::Read, sync::Arc};
+use std::fs;
+use std::path::PathBuf;
+use std::sync::Arc;
 
 use jsonwebtoken::{decode, decode_header, jwk::JwkSet, DecodingKey, TokenData};
 use reqwest::Url;
@@ -40,19 +42,12 @@ where
     pub validation: crate::validation::Validation,
 }
 
-fn read_data(path: &str) -> Result<Vec<u8>, InitError> {
-    let mut data = Vec::<u8>::new();
-    let mut f = std::fs::File::open(path)?;
-    f.read_to_end(&mut data)?;
-    Ok(data)
-}
-
 pub enum KeySourceType {
-    RSA(String),
+    RSA(PathBuf),
     RSAString(String),
-    EC(String),
+    EC(PathBuf),
     ECString(String),
-    ED(String),
+    ED(PathBuf),
     EDString(String),
     Secret(String),
     Jwks(String),
@@ -72,7 +67,8 @@ where
     ) -> Result<Authorizer<C>, InitError> {
         let key_source = match key_source_type {
             KeySourceType::RSA(path) => {
-                let key = DecodingKey::from_rsa_pem(&read_data(path.as_str())?)?;
+                let data = fs::read(path)?;
+                let key = DecodingKey::from_rsa_pem(&data)?;
                 KeySource::SingleKeySource(Arc::new(KeyData::from_rsa_key(key)))
             }
             KeySourceType::RSAString(text) => {
@@ -80,7 +76,8 @@ where
                 KeySource::SingleKeySource(Arc::new(KeyData::from_rsa_key(key)))
             }
             KeySourceType::EC(path) => {
-                let key = DecodingKey::from_ec_pem(&read_data(path.as_str())?)?;
+                let data = fs::read(path)?;
+                let key = DecodingKey::from_ec_pem(&data)?;
                 KeySource::SingleKeySource(Arc::new(KeyData::from_ec_key(key)))
             }
             KeySourceType::ECString(text) => {
@@ -88,7 +85,8 @@ where
                 KeySource::SingleKeySource(Arc::new(KeyData::from_ec_key(key)))
             }
             KeySourceType::ED(path) => {
-                let key = DecodingKey::from_ed_pem(&read_data(path.as_str())?)?;
+                let data = fs::read(path)?;
+                let key = DecodingKey::from_ed_pem(&data)?;
                 KeySource::SingleKeySource(Arc::new(KeyData::from_ed_key(key)))
             }
             KeySourceType::EDString(text) => {
@@ -146,6 +144,8 @@ where
 #[cfg(test)]
 mod tests {
 
+    use std::path::Path;
+
     use jsonwebtoken::{Algorithm, Header};
     use serde_json::Value;
 
@@ -185,7 +185,7 @@ mod tests {
     #[tokio::test]
     async fn build_from_file() {
         let a = Authorizer::<Value>::build(
-            &KeySourceType::RSA("../config/rsa-public1.pem".to_owned()),
+            &KeySourceType::RSA(Path::new("../config/rsa-public1.pem").to_owned()),
             None,
             None,
             Validation::new(),
@@ -196,7 +196,7 @@ mod tests {
         assert!(k.await.is_ok());
 
         let a = Authorizer::<Value>::build(
-            &KeySourceType::EC("../config/ecdsa-public1.pem".to_owned()),
+            &KeySourceType::EC(Path::new("../config/ecdsa-public1.pem").to_owned()),
             None,
             None,
             Validation::new(),
@@ -207,7 +207,7 @@ mod tests {
         assert!(k.await.is_ok());
 
         let a = Authorizer::<Value>::build(
-            &KeySourceType::ED("../config/ed25519-public1.pem".to_owned()),
+            &KeySourceType::ED(Path::new("../config/ed25519-public1.pem").to_owned()),
             None,
             None,
             Validation::new(),
@@ -257,7 +257,7 @@ mod tests {
     #[tokio::test]
     async fn build_file_errors() {
         let a = Authorizer::<Value>::build(
-            &KeySourceType::RSA("./config/does-not-exist.pem".to_owned()),
+            &KeySourceType::RSA(Path::new("./config/does-not-exist.pem").to_owned()),
             None,
             None,
             Validation::new(),

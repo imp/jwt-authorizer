@@ -8,6 +8,7 @@ use headers::{Authorization, HeaderMapExt};
 use pin_project::pin_project;
 use serde::de::DeserializeOwned;
 use std::future::Future;
+use std::path::Path;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
@@ -63,9 +64,9 @@ where
     }
 
     /// Builds Authorizer Layer from a RSA PEM file
-    pub fn from_rsa_pem(path: &str) -> JwtAuthorizer<C> {
+    pub fn from_rsa_pem(path: impl AsRef<Path>) -> JwtAuthorizer<C> {
         JwtAuthorizer {
-            key_source_type: KeySourceType::RSA(path.to_owned()),
+            key_source_type: KeySourceType::RSA(path.as_ref().to_owned()),
             refresh: Default::default(),
             claims_checker: None,
             validation: None,
@@ -85,9 +86,9 @@ where
     }
 
     /// Builds Authorizer Layer from a EC PEM file
-    pub fn from_ec_pem(path: &str) -> JwtAuthorizer<C> {
+    pub fn from_ec_pem(path: impl AsRef<Path>) -> JwtAuthorizer<C> {
         JwtAuthorizer {
-            key_source_type: KeySourceType::EC(path.to_owned()),
+            key_source_type: KeySourceType::EC(path.as_ref().to_owned()),
             refresh: Default::default(),
             claims_checker: None,
             validation: None,
@@ -107,9 +108,9 @@ where
     }
 
     /// Builds Authorizer Layer from a EC PEM file
-    pub fn from_ed_pem(path: &str) -> JwtAuthorizer<C> {
+    pub fn from_ed_pem(path: impl AsRef<Path>) -> JwtAuthorizer<C> {
         JwtAuthorizer {
-            key_source_type: KeySourceType::ED(path.to_owned()),
+            key_source_type: KeySourceType::ED(path.as_ref().to_owned()),
             refresh: Default::default(),
             claims_checker: None,
             validation: None,
