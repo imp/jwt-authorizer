@@ -24,6 +24,38 @@ pub struct KeyData {
 }
 
 impl KeyData {
+    pub fn from_rsa_key(key: DecodingKey) -> Self {
+        Self {
+            kid: None,
+            alg: vec![Algorithm::RS256, Algorithm::RS384, Algorithm::RS512],
+            key,
+        }
+    }
+
+    pub fn from_ec_key(key: DecodingKey) -> Self {
+        Self {
+            kid: None,
+            alg: vec![Algorithm::ES256, Algorithm::ES384],
+            key,
+        }
+    }
+
+    pub fn from_ed_key(key: DecodingKey) -> Self {
+        Self {
+            kid: None,
+            alg: vec![Algorithm::EdDSA],
+            key,
+        }
+    }
+
+    pub fn from_secret(key: DecodingKey) -> Self {
+        Self {
+            kid: None,
+            alg: vec![Algorithm::HS256, Algorithm::HS384, Algorithm::HS512],
+            key,
+        }
+    }
+
     pub fn from_jwk(key: &Jwk) -> Result<KeyData, jsonwebtoken::errors::Error> {
         Ok(KeyData {
             kid: key.common.key_id.clone(),
